@@ -12,6 +12,7 @@ A personal expense and investment tracker in a single HTML file. It has no build
 - **Investments**: stocks, mutual funds, gold, bonds/SBN, savings/deposits, crypto or other, shown as a pie chart per month plus an all-time total.
 - **Emergency Fund**: put money in or take it out, see the running balance, and set a target with a progress bar. The app suggests a target of 3–6 months of your spending.
 - **PDF report**: download a report covering 1 to 6 months, ending with the month you're viewing. It includes a summary, month-by-month table, spending pie chart, stacked monthly spending chart, biggest expenses, income and extra income, investments, and optionally every expense entry.
+  - **Conclusion**: every report ends its summary page with a conclusion that has a headline, highlights and suggestions. On claude.ai, Claude (AI) writes it from your numbers. Elsewhere, such as GitHub Pages or a local file, the app writes one from built-in rules.
 - **Monthly reset**: every month starts at Rp 0. Use ‹ › to browse past months.
 - Amounts in Rupiah (IDR). Works in light and dark mode, on desktop and mobile.
 
