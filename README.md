@@ -16,18 +16,38 @@ A personal expense and investment tracker in a single HTML file. It has no build
 - **Monthly reset**: every month starts at Rp 0. Use ‹ › to browse past months.
 - Amounts in Rupiah (IDR). Works in light and dark mode, on desktop and mobile.
 
-## Run it
+## Project files
 
-Open `index.html` in any browser. Data is saved in your browser's local storage on that device.
+| File | What it does |
+|---|---|
+| `index.html` | The whole app: screens, charts and PDF report |
+| `api/conclusion.js` | Server function that asks Claude to write the report conclusion. Your API key stays here, never in the browser. |
+| `server.js` | Small local server for running the app on your laptop |
+| `.env.example` | Template for your API key. Copy it to `.env`. |
 
-To use it from your phone, enable **GitHub Pages**: go to Settings → Pages, set Source to `main` and folder to `/ (root)`, then open the URL GitHub gives you.
+## Run it on your laptop (VS Code)
 
-## Push this folder to GitHub
+1. Install **Node.js 18 or newer** from nodejs.org.
+2. Open this folder in VS Code (**File -> Open Folder**).
+3. Copy `.env.example` to `.env` and paste your Claude API key after `ANTHROPIC_API_KEY=`.
+4. Open the terminal (**Terminal -> New Terminal**) and run `npm start`.
+5. Open http://localhost:3000.
 
-This folder is already a git repo, with `origin` pointing at `https://github.com/anselmusmw/dailyfinance.git`. From inside it, run:
+Without a key the app still works fully. The report then uses the built-in (non-AI) conclusion.
+
+## Use it on your phone
+
+- **Same Wi-Fi:** while `npm start` is running, open the "Phone" address printed in the terminal.
+- **Anywhere:** deploy to Vercel (free). Import this GitHub repo at vercel.com, add `ANTHROPIC_API_KEY` under Settings -> Environment Variables, and redeploy. Every `git push` updates it automatically.
+
+Data is saved per device and browser, so your laptop and phone keep separate records.
+
+## Push changes to GitHub
 
 ```bash
-git push -u origin main
+git add .
+git commit -m "Describe your change"
+git push
 ```
 
-If git asks for a password, use a GitHub personal access token or sign in with GitHub Desktop.
+`.env` is in `.gitignore`, so your API key is never uploaded.

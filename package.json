@@ -1,0 +1,13 @@
+{
+  "name": "money-diary",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Money Diary: personal expense, income and investment tracker",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
