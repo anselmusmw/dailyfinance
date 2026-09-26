@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Finance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EEF5; --surface:#FFFFFF; --ink:#14213D; --muted:#5B6782; --line:#D5DDE8; --soft:#F3F6FA;
+  --metime:#0EA5C6; --transport:#16A34A; --eat:#7C3AED; --friends:#1E3A8A; --girlfriend:#EC4899; --emergency:#DC2626;
+  --invest:#B7791F; --ok:#15803D; --bad:#B91C1C;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1526; --surface:#172036; --ink:#E8EDF7; --muted:#9AA6BF; --line:#2A3654; --soft:#1D2842;
+    --friends:#4C6FE0; --eat:#9F7AEA; --invest:#E0A43A; --ok:#4ADE80; --bad:#F87171; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1526; --surface:#172036; --ink:#E8EDF7; --muted:#9AA6BF; --line:#2A3654; --soft:#1D2842;
+  --friends:#4C6FE0; --eat:#9F7AEA; --invest:#E0A43A; --ok:#4ADE80; --bad:#F87171; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--metime);outline-offset:2px;border-radius:6px}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 48px}
+
+/* Header / month */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.brand{font:700 1.05rem var(--display);letter-spacing:-.01em}
+.month{display:flex;align-items:center;gap:6px}
+.month h1{font:800 clamp(1.6rem,4.5vw,2.4rem)/1 var(--display);letter-spacing:-.03em;margin:0 6px;min-width:9ch;text-align:center}
+.iconbtn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:1.1rem}
+.iconbtn:hover{background:var(--soft)}
+.today{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 12px;font-size:.85rem;color:var(--muted)}
+
+/* The ledger strip: the signature element */
+.ledger{background:var(--surface);border-radius:20px;padding:22px 22px 18px;border:1px solid var(--line)}
+.figures{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.fig span{display:block;font-size:.85rem;color:var(--muted)}
+.fig b{display:block;font:700 clamp(1.05rem,2.6vw,1.5rem)/1.2 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fig.left b.neg{color:var(--bad)} .fig.left b.pos{color:var(--ok)}
+.fig .edit{border:0;background:none;padding:0;color:var(--metime);font-size:.8rem;text-decoration:underline;text-underline-offset:3px}
+.strip{margin-top:18px;height:26px;border-radius:8px;background:var(--soft);display:flex;overflow:hidden;position:relative}
+.strip i{display:block;height:100%;transition:width .35s ease}
+.strip .empty{position:absolute;inset:0;display:grid;place-items:center;font-size:.8rem;color:var(--muted)}
+.stripnote{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin-top:6px}
+.carried{font-size:.78rem;color:var(--muted)}
+
+/* Tabs */
+.tabs{display:flex;gap:6px;margin:22px 0 14px;border-bottom:1px solid var(--line)}
+.tab{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:18px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.panel h2{font:700 1.15rem var(--display);margin:0 0 14px;letter-spacing:-.01em}
+
+/* Form */
+label.f{display:block;font-size:.85rem;color:var(--muted);margin:12px 0 6px}
+.amount{display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:0 12px}
+.amount span{font-weight:600;color:var(--muted)}
+.amount input{border:0;background:transparent;padding:12px 8px;width:100%;font:700 1.4rem var(--display);font-variant-numeric:tabular-nums;outline:none}
+.amount:focus-within{border-color:var(--ink)}
+input.t,select.t{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--soft);padding:10px 12px}
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cat{display:flex;align-items:center;gap:8px;border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 10px;text-align:left;font-size:.92rem;font-weight:500}
+.cat .dot{width:12px;height:12px;border-radius:50%;flex:none;background:var(--c)}
+.cat[aria-pressed="true"]{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.primary{width:100%;margin-top:16px;border:0;border-radius:12px;padding:13px;background:var(--ink);color:var(--surface);font-weight:600}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.err{color:var(--bad);font-size:.85rem;min-height:1.2em;margin-top:8px}
+
+/* Breakdown */
+.breakdown{display:grid;gap:10px;margin-bottom:18px}
+.brow{display:grid;grid-template-columns:130px 1fr auto;align-items:center;gap:10px;font-size:.9rem}
+.brow .name{display:flex;align-items:center;gap:8px}
+.brow .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.bar{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--c);border-radius:4px}
+.brow b{font-variant-numeric:tabular-nums;font-weight:600;min-width:8ch;text-align:right}
+
+/* List */
+.day{font-size:.8rem;color:var(--muted);margin:16px 0 6px;font-weight:600}
+.item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:0}
+.swatch{width:6px;align-self:stretch;border-radius:3px;background:var(--c);flex:none}
+.item .meta{flex:1;min-width:0}
+.item .meta b{display:block;font-weight:600}
+.item .meta small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.del{border:0;background:none;color:var(--muted);font-size:1.1rem;padding:4px 8px;border-radius:8px}
+.del:hover{background:var(--soft);color:var(--bad)}
+.emptylist{color:var(--muted);text-align:center;padding:28px 8px}
+
+/* Dialog */
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);padding:20px;width:min(92vw,380px)}
+dialog::backdrop{background:rgba(10,15,30,.45)}
+dialog h3{font:700 1.2rem var(--display);margin:0 0 4px}
+dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
+.drow{display:flex;gap:8px;margin-top:16px}
+.drow button{flex:1;border-radius:10px;padding:11px;font-weight:600}
+.ghost{background:transparent;border:1px solid var(--line)}
+.check{display:flex;gap:8px;align-items:center;font-size:.9rem;margin-top:10px;color:var(--muted)}
+.foot{margin-top:28px;font-size:.8rem;color:var(--muted);text-align:center}
+
+@media (max-width:720px){
+  .grid{grid-template-columns:1fr}
+  .figures{grid-template-columns:1fr 1fr}
+  .brow{grid-template-columns:110px 1fr auto}
+}
+@media (prefers-reduced-motion:reduce){.strip i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Daily Finance</div>
+    <div class="month">
+      <button class="iconbtn" id="prev" aria-label="Previous month">‹</button>
+      <h1 id="monthLabel">—</h1>
+      <button class="iconbtn" id="next" aria-label="Next month">›</button>
+      <button class="today" id="thisMonth">This month</button>
+    </div>
+  </header>
+
+  <section class="ledger" aria-label="Month summary">
+    <div class="figures">
+      <div class="fig"><span>Income</span><b id="fIncome">Rp 0</b>
+        <button class="edit" id="editIncome">Set income</button>
+        <div class="carried" id="carried"></div></div>
+      <div class="fig"><span>Spent</span><b id="fSpent">Rp 0</b></div>
+      <div class="fig"><span>Invested</span><b id="fInvested">Rp 0</b></div>
+      <div class="fig left"><span>Left this month</span><b id="fLeft">Rp 0</b></div>
+    </div>
+    <div class="strip" id="strip" role="img" aria-label="Where this month's money went"></div>
+    <div class="stripnote"><span id="stripLeft"></span><span id="stripRight"></span></div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabExp" aria-selected="true" aria-controls="viewExp">Expenses</button>
+    <button class="tab" role="tab" id="tabInv" aria-selected="false" aria-controls="viewInv">Investments</button>
+  </div>
+
+  <!-- Expenses -->
+  <div id="viewExp" role="tabpanel" class="grid">
+    <form class="panel" id="expForm" novalidate>
+      <h2>Add an expense</h2>
+      <label class="f" for="expAmount">Amount</label>
+      <div class="amount"><span>Rp</span><input id="expAmount" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+      <label class="f">Category</label>
+      <div class="cats" id="expCats"></div>
+      <label class="f" for="expNote">Note (optional)</label>
+      <input class="t" id="expNote" maxlength="80" placeholder="e.g. Gojek to campus">
+      <label class="f" for="expDate">Date</label>
+      <input class="t" id="expDate" type="date">
+      <button class="primary" id="expSave" type="submit">Add expense</button>
+      <div class="err" id="expErr" role="status"></div>
+    </form>
+    <div class="panel">
+      <h2>Where it went</h2>
+      <div class="breakdown" id="expBreakdown"></div>
+      <div id="expList"></div>
+    </div>
+  </div>
+
+  <!-- Investments -->
+  <div id="viewInv" role="tabpanel" class="grid" hidden>
+    <form class="panel" id="invForm" novalidate>
+      <h2>Add an investment</h2>
+      <label class="f" for="invAmount">Amount</label>
+      <div class="amount"><span>Rp</span><input id="invAmount" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+      <label class="f" for="invType">Put into</label>
+      <select class="t" id="invType"></select>
+      <label class="f" for="invNote">Note (optional)</label>
+      <input class="t" id="invNote" maxlength="80" placeholder="e.g. Reksa dana via Bibit">
+      <label class="f" for="invDate">Date</label>
+      <input class="t" id="invDate" type="date">
+      <button class="primary" id="invSave" type="submit">Add investment</button>
+      <div class="err" id="invErr" role="status"></div>
+    </form>
+    <div class="panel">
+      <h2>Where your investments go</h2>
+      <div class="breakdown" id="invBreakdown"></div>
+      <div id="invList"></div>
+      <p class="carried" id="invTotal" style="margin-top:14px"></p>
+    </div>
+  </div>
+
+  <p class="foot" id="syncNote">Saved on this device.</p>
+</div>
+
+<dialog id="incomeDlg">
+  <form method="dialog" id="incomeForm">
+    <h3>Monthly income</h3>
+    <p id="incomeHint">Set what comes in for this month. Future months use it too until you change it.</p>
+    <div class="amount"><span>Rp</span><input id="incomeInput" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+    <label class="check"><input type="checkbox" id="incomeOnly"> Only change this month</label>
+    <div class="drow">
+      <button class="ghost" value="cancel" type="button" id="incomeCancel">Cancel</button>
+      <button class="primary" style="margin:0" value="save" id="incomeSaveBtn">Save income</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  const CATS = [
+    {id:"metime", name:"Me time"},
+    {id:"transport", name:"Transport"},
+    {id:"eat", name:"Eat"},
+    {id:"friends", name:"With friends"},
+    {id:"girlfriend", name:"With girlfriend"},
+    {id:"emergency", name:"Emergency"},
+  ];
+  const INV = [
+    {id:"stocks", name:"Stocks", c:"#B7791F"},
+    {id:"mutual", name:"Mutual funds", c:"#0F766E"},
+    {id:"gold", name:"Gold", c:"#CA8A04"},
+    {id:"bonds", name:"Bonds / SBN", c:"#64748B"},
+    {id:"deposit", name:"Savings / deposit", c:"#0369A1"},
+    {id:"crypto", name:"Crypto", c:"#9333EA"},
+    {id:"other", name:"Other", c:"#78716C"},
+  ];
+  const KEY = "dailyfinance:v1";
+  const $ = id => document.getElementById(id);
+  const fmt = n => "Rp " + Math.round(n).toLocaleString("id-ID");
+  const parseAmt = s => Number(String(s).replace(/[^\d]/g, "")) || 0;
+  const pad = n => String(n).padStart(2, "0");
+  const mkey = d => d.getFullYear() + "-" + pad(d.getMonth() + 1);
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const catVar = id => `var(--${id})`;
+
+  let state = {version:1, income:{}, expenses:[], investments:[]};
+  let view = mkey(new Date());
+  let selCat = "metime";
+  let remote = null; // {doc}
+
+  // ---------- storage ----------
+  function loadLocal(){
+    try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch(e){}
+    return null;
+  }
+  function saveLocal(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+  let saveTimer = null;
+  function persist(){
+    saveLocal();
+    if (!remote) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try { await remote.doc.set(JSON.parse(JSON.stringify(state))); $("syncNote").textContent = "Saved to your account."; }
+      catch(e){ $("syncNote").textContent = "Saved on this device. Account sync failed, it will retry on your next change."; }
+    }, 400);
+  }
+  function normalize(s){
+    if (!s || typeof s !== "object") return null;
+    return {version:1, income: s.income && typeof s.income === "object" ? s.income : {},
+      expenses: Array.isArray(s.expenses) ? s.expenses : [], investments: Array.isArray(s.investments) ? s.investments : []};
+  }
+  async function connectRemote(){
+    if (!window.claude || typeof window.claude.use !== "function") return;
+    try {
+      const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      const doc = db.doc("data/users/" + id + "/finance");
+      const snap = await doc.get();
+      remote = {doc};
+      if (snap.exists) {
+        const s = normalize(snap.data());
+        if (s) { state = s; saveLocal(); render(); }
+      } else if (state.expenses.length || state.investments.length || Object.keys(state.income).length) {
+        persist();
+      }
+      $("syncNote").textContent = "Saved to your account.";
+    } catch(e) { remote = null; }
+  }
+
+  // ---------- income ----------
+  function incomeOf(key){
+    if (state.income["only:" + key] != null) return {value: state.income["only:" + key], from: key, only:true};
+    const keys = Object.keys(state.income).filter(k => !k.startsWith("only:") && k <= key).sort();
+    if (keys.length) { const k = keys[keys.length-1]; return {value: state.income[k], from: k}; }
+    return {value: 0, from: null};
+  }
+  const monthName = key => { const [y,m] = key.split("-").map(Number); return new Date(y, m-1, 1).toLocaleDateString("en-GB", {month:"long", year:"numeric"}); };
+
+  // ---------- helpers ----------
+  const inMonth = (arr, key) => arr.filter(x => x.date && x.date.slice(0,7) === key);
+  function shiftMonth(key, d){ const [y,m] = key.split("-").map(Number); return mkey(new Date(y, m-1+d, 1)); }
+  function defaultDate(key){
+    const now = new Date();
+    if (mkey(now) === key) return key + "-" + pad(now.getDate());
+    return key + "-01";
+  }
+  function bindAmount(input){
+    input.addEventListener("input", () => {
+      const n = parseAmt(input.value);
+      input.value = n ? n.toLocaleString("id-ID") : "";
+    });
+  }
+
+  // ---------- render ----------
+  function render(){
+    $("monthLabel").textContent = monthName(view);
+    const exps = inMonth(state.expenses, view).sort((a,b) => b.date.localeCompare(a.date) || b.t - a.t);
+    const invs = inMonth(state.investments, view).sort((a,b) => b.date.localeCompare(a.date) || b.t - a.t);
+    const spent = exps.reduce((s,x) => s + x.amount, 0);
+    const invested = invs.reduce((s,x) => s + x.amount, 0);
+    const inc = incomeOf(view);
+    const left = inc.value - spent - invested;
+
+    $("fIncome").textContent = fmt(inc.value);
+    $("editIncome").textContent = inc.value ? "Adjust income" : "Set income";
+    $("carried").textContent = inc.from && inc.from !== view ? "Same as " + monthName(inc.from) : (inc.only ? "This month only" : "");
+    $("fSpent").textContent = fmt(spent);
+    $("fInvested").textContent = fmt(invested);
+    const L = $("fLeft"); L.textContent = (left < 0 ? "− " : "") + fmt(Math.abs(left));
+    L.className = inc.value ? (left < 0 ? "neg" : "pos") : "";
+
+    // strip: share of income (or of total outflow if no income)
+    const strip = $("strip"); strip.innerHTML = "";
+    const base = Math.max(inc.value, spent + invested);
+    if (!base) {
+      strip.innerHTML = '<div class="empty">Nothing yet this month, starts at Rp 0</div>';
+    } else {
+      const totals = catTotals(exps);
+      CATS.forEach(c => { if (totals[c.id]) { const i = document.createElement("i"); i.style.width = (totals[c.id]/base*100) + "%"; i.style.background = catVar(c.id); i.title = c.name + ": " + fmt(totals[c.id]); strip.appendChild(i); }});
+      if (invested) { const i = document.createElement("i"); i.style.width = (invested/base*100)+"%"; i.style.background = "repeating-linear-gradient(45deg,var(--invest) 0 6px,color-mix(in srgb,var(--invest) 70%,transparent) 6px 12px)"; i.title = "Invested: " + fmt(invested); strip.appendChild(i); }
+    }
+    $("stripLeft").textContent = inc.value ? Math.min(100, Math.round((spent+invested)/inc.value*100)) + "% of income used" : (spent+invested ? "Set your income to see how much is left" : "");
+    $("stripRight").textContent = inc.value && left > 0 ? fmt(left) + " free" : "";
+
+    renderBreakdown($("expBreakdown"), CATS.map(c => ({name:c.name, c:catVar(c.id), v:catTotals(exps)[c.id]||0})), spent, true);
+    renderList($("expList"), exps, "expenses", x => { const c = CATS.find(c => c.id === x.cat) || CATS[0]; return {title:c.name, color:catVar(c.id)}; }, "No expenses in " + monthName(view) + " yet. Add your first one on the left.");
+
+    const itot = {}; invs.forEach(x => itot[x.type] = (itot[x.type]||0) + x.amount);
+    renderBreakdown($("invBreakdown"), INV.map(t => ({name:t.name, c:t.c, v:itot[t.id]||0})), invested, false);
+    renderList($("invList"), invs, "investments", x => { const t = INV.find(t => t.id === x.type) || INV[INV.length-1]; return {title:t.name, color:t.c}; }, "No investments in " + monthName(view) + " yet.");
+    const all = state.investments.reduce((s,x) => s + x.amount, 0);
+    $("invTotal").textContent = all ? "All-time invested: " + fmt(all) : "";
+
+    $("expDate").value = defaultDate(view); $("invDate").value = defaultDate(view);
+    $("expDate").min = $("invDate").min = view + "-01";
+    const [y,m] = view.split("-").map(Number);
+    $("expDate").max = $("invDate").max = view + "-" + pad(new Date(y, m, 0).getDate());
+  }
+  function catTotals(exps){ const t = {}; exps.forEach(x => t[x.cat] = (t[x.cat]||0) + x.amount); return t; }
+  function renderBreakdown(el, rows, total, showAll){
+    el.innerHTML = "";
+    const max = Math.max(...rows.map(r => r.v), 0);
+    rows.filter(r => showAll || r.v).forEach(r => {
+      const d = document.createElement("div"); d.className = "brow"; d.style.setProperty("--c", r.c);
+      d.innerHTML = `<span class="name"><span class="dot"></span></span><div class="bar"><i style="width:${max ? r.v/max*100 : 0}%"></i></div><b></b>`;
+      d.querySelector(".name").append(r.name); d.querySelector("b").textContent = fmt(r.v);
+      el.appendChild(d);
+    });
+  }
+  function renderList(el, items, coll, look, emptyMsg){
+    el.innerHTML = "";
+    if (!items.length) { el.innerHTML = `<div class="emptylist"></div>`; el.firstChild.textContent = emptyMsg; return; }
+    let lastDay = null, group = null;
+    items.forEach(x => {
+      if (x.date !== lastDay) {
+        lastDay = x.date;
+        const h = document.createElement("div"); h.className = "day";
+        const [y,m,d] = x.date.split("-").map(Number);
+        h.textContent = new Date(y, m-1, d).toLocaleDateString("en-GB", {weekday:"long", day:"numeric", month:"short"});
+        el.appendChild(h); group = document.createElement("div"); el.appendChild(group);
+      }
+      const L = look(x);
+      const row = document.createElement("div"); row.className = "item"; row.style.setProperty("--c", L.color);
+      row.innerHTML = `<span class="swatch"></span><div class="meta"><b></b><small></small></div><span class="amt"></span><button class="del" aria-label="Delete">×</button>`;
+      row.querySelector("b").textContent = L.title;
+      row.querySelector("small").textContent = x.note || "";
+      row.querySelector(".amt").textContent = fmt(x.amount);
+      row.querySelector(".del").addEventListener("click", () => {
+        if (!confirm("Delete " + L.title + " " + fmt(x.amount) + "?")) return;
+        state[coll] = state[coll].filter(y => y.id !== x.id); persist(); render();
+      });
+      group.appendChild(row);
+    });
+  }
+
+  // ---------- setup ----------
+  const catBox = $("expCats");
+  CATS.forEach(c => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "cat";
+    b.style.setProperty("--c", catVar(c.id)); b.dataset.id = c.id;
+    b.innerHTML = '<span class="dot"></span>'; b.append(c.name);
+    b.setAttribute("aria-pressed", c.id === selCat);
+    b.addEventListener("click", () => { selCat = c.id; catBox.querySelectorAll(".cat").forEach(x => x.setAttribute("aria-pressed", x.dataset.id === selCat)); });
+    catBox.appendChild(b);
+  });
+  INV.forEach(t => { const o = document.createElement("option"); o.value = t.id; o.textContent = t.name; $("invType").appendChild(o); });
+  bindAmount($("expAmount")); bindAmount($("invAmount")); bindAmount($("incomeInput"));
+
+  function addEntry(coll, fields, amountEl, noteEl, dateEl, errEl){
+    const amount = parseAmt(amountEl.value);
+    const date = dateEl.value;
+    if (!amount) { errEl.textContent = "Enter an amount above Rp 0."; amountEl.focus(); return; }
+    if (!date) { errEl.textContent = "Pick a date."; return; }
+    errEl.textContent = "";
+    state[coll].push(Object.assign({id: uid(), t: Date.now(), amount, date, note: noteEl.value.trim()}, fields));
+    amountEl.value = ""; noteEl.value = "";
+    if (date.slice(0,7) !== view) view = date.slice(0,7);
+    persist(); render(); amountEl.focus();
+  }
+  $("expForm").addEventListener("submit", e => { e.preventDefault(); addEntry("expenses", {cat: selCat}, $("expAmount"), $("expNote"), $("expDate"), $("expErr")); });
+  $("invForm").addEventListener("submit", e => { e.preventDefault(); addEntry("investments", {type: $("invType").value}, $("invAmount"), $("invNote"), $("invDate"), $("invErr")); });
+
+  $("prev").onclick = () => { view = shiftMonth(view, -1); render(); };
+  $("next").onclick = () => { view = shiftMonth(view, 1); render(); };
+  $("thisMonth").onclick = () => { view = mkey(new Date()); render(); };
+
+  function setTab(exp){
+    $("tabExp").setAttribute("aria-selected", exp); $("tabInv").setAttribute("aria-selected", !exp);
+    $("viewExp").hidden = !exp; $("viewInv").hidden = exp;
+  }
+  $("tabExp").onclick = () => setTab(true);
+  $("tabInv").onclick = () => setTab(false);
+
+  const dlg = $("incomeDlg");
+  $("editIncome").onclick = () => {
+    const inc = incomeOf(view);
+    $("incomeInput").value = inc.value ? inc.value.toLocaleString("id-ID") : "";
+    $("incomeOnly").checked = !!inc.only;
+    $("incomeHint").textContent = "Income for " + monthName(view) + ". Later months use it too until you change it.";
+    dlg.showModal(); $("incomeInput").focus();
+  };
+  $("incomeCancel").onclick = () => dlg.close();
+  $("incomeForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const v = parseAmt($("incomeInput").value);
+    delete state.income["only:" + view];
+    if ($("incomeOnly").checked) state.income["only:" + view] = v;
+    else { state.income[view] = v; }
+    dlg.close(); persist(); render();
+  });
+
+  const local = normalize(loadLocal());
+  if (local) state = local;
+  render();
+  connectRemote();
+})();
+</script>
+</body>
+</html>
