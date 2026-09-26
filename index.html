@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Money Diary</title>
+<meta name="theme-color" content="#EDF1EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111917" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Money Diary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -177,13 +186,32 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
 .rperiod b{display:block;font:400 1.25rem var(--serif)}
 .foot{margin-top:32px;font-size:.8rem;color:var(--muted);text-align:center}
 
+/* ---------- Everyday: quick add, edit, backup ---------- */
+.fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;align-items:center;gap:8px;
+  border:0;border-radius:999px;padding:14px 20px;background:var(--ink);color:var(--bg);font-weight:600;font-size:1rem;box-shadow:0 10px 30px -8px rgba(20,35,30,.55)}
+.fab span{font-size:1.3rem;line-height:1}
+.item.tap{cursor:pointer;border-radius:8px}
+.item.tap:hover{background:var(--soft)}
+.editing{font-size:.82rem;color:var(--muted);margin:-2px 0 6px}
+.dangerbtn{border:1px solid color-mix(in srgb,var(--bad) 45%,transparent);background:transparent;color:var(--bad);border-radius:999px;padding:9px 14px;font-weight:600}
+.dangerbtn.arm{background:var(--bad);color:#fff}
+.bk{display:grid;gap:10px;margin-top:6px}
+.bk .ghost{width:100%}
+.notice{display:flex;justify-content:space-between;align-items:center;gap:10px;background:color-mix(in srgb,var(--invest) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--invest) 35%,transparent);border-radius:16px;padding:10px 14px;margin:0 0 14px;font-size:.9rem}
+.notice button{flex:none}
+dialog.sheet{max-height:92vh;overflow:auto}
 @media (max-width:900px){ .kpis{grid-template-columns:repeat(3,1fr)} }
 @media (max-width:760px){
   .grid,.grid2{grid-template-columns:minmax(0,1fr)}
   .kpis{grid-template-columns:1fr 1fr}
   .kpi.left{grid-column:1 / -1}
   .pie{grid-template-columns:1fr}
-  .tabs{justify-content:flex-start}
+  .tabs{justify-content:flex-start;position:sticky;top:0;z-index:10;margin:18px -16px 14px;padding:8px 16px;
+    padding-top:calc(8px + env(safe-area-inset-top,0px));background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(12px)}
+  #expForm{display:none}
+  .wrap{padding-bottom:110px}
+  .hero{padding-top:26px}
+  dialog.sheet{margin:auto auto 0;width:100%;max-width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){ .progress i,.pie circle.s{transition:none} }
 </style>
@@ -199,11 +227,13 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
   </div>
   <div class="hactions">
     <button class="pill" id="thisMonth">This month</button>
-    <button class="pill dark" id="openReport">Download PDF report</button>
+    <button class="pill" id="openBackup">Backup</button>
+    <button class="pill dark" id="openReport">PDF report</button>
   </div>
 </header>
 
 <main class="wrap">
+  <div class="notice" id="bkNotice" hidden><span id="bkNoticeText"></span><button class="ghost" id="bkNoticeBtn">Back up now</button></div>
   <section class="kpis" aria-label="Month summary">
     <div class="kpi" style="--c:var(--income)"><span>Income</span><b id="kIncome">Rp 0</b><small id="kIncomeSub"></small></div>
     <div class="kpi" style="--c:var(--emergency)"><span>Expenses</span><b id="kSpent">Rp 0</b><small id="kSpentSub"></small></div>
@@ -344,6 +374,7 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
   </section>
 
   <p class="foot" id="syncNote">Saved on this device.</p>
+  <button class="fab" id="fab" aria-label="Add expense"><span>+</span> Expense</button>
 </main>
 
 <dialog id="incomeDlg">
@@ -364,6 +395,43 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
   </form>
 </dialog>
 
+<dialog id="quickDlg" class="sheet">
+  <form id="quickForm" novalidate>
+    <h3 id="qTitle">Add expense</h3>
+    <p class="editing" id="qSub" hidden></p>
+    <div class="amount"><span>Rp</span><input id="qAmount" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Amount"></div>
+    <label class="f">Category</label>
+    <div class="cats" id="qCats"></div>
+    <div class="row2" style="margin-top:12px">
+      <input class="t" id="qNote" maxlength="80" placeholder="Note (optional)" aria-label="Note">
+      <input class="t" id="qDate" type="date" aria-label="Date">
+    </div>
+    <div class="err" id="qErr" role="status"></div>
+    <div class="drow">
+      <button class="ghost" type="button" data-close>Cancel</button>
+      <button class="dangerbtn" type="button" id="qDelete" hidden>Delete</button>
+      <button class="primary" type="submit" id="qSave">Add expense</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="backupDlg">
+  <form id="backupForm">
+    <h3>Backup</h3>
+    <p>Your data lives only in this browser. Download a backup regularly, and use it to move your data between your laptop and phone.</p>
+    <p class="muted" id="bkLast"></p>
+    <div class="bk">
+      <button class="primary" type="button" id="bkDownload" style="margin:0">Download backup</button>
+      <button class="ghost" type="button" id="bkRestore">Restore from a backup file</button>
+      <input type="file" id="bkFile" accept=".json,application/json" hidden>
+    </div>
+    <div id="bkConfirm" hidden style="margin-top:14px">
+      <p id="bkConfirmText"></p>
+      <div class="drow" style="margin-top:8px"><button class="ghost" type="button" id="bkCancel">Keep my current data</button><button class="dangerbtn" type="button" id="bkReplace">Replace</button></div>
+    </div>
+    <div class="err" id="bkErr" role="status"></div>
+    <div class="drow"><button class="ghost" type="button" data-close>Close</button></div>
+  </form>
+</dialog>
 <dialog id="reportDlg">
   <form id="reportForm">
     <h3>PDF report</h3>
@@ -371,7 +439,6 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
     <div class="seg six" id="rMonths" role="group" aria-label="Number of months"></div>
     <div class="rperiod"><span class="muted">Period</span><b id="rPeriod">—</b><span class="muted" id="rCount"></span></div>
     <label class="check"><input type="checkbox" id="rDetail" checked> Include every expense entry</label>
-    <label class="check" id="rAIRow" hidden><input type="checkbox" id="rAI" checked> Let Claude (AI) write the conclusion</label>
     <div class="err" id="rErr" role="status"></div>
     <div class="drow"><button class="ghost" type="button" data-close>Cancel</button><button class="primary" type="submit" id="rGo">Download PDF</button></div>
   </form>
@@ -545,6 +612,11 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
         });
         row.appendChild(d);
       }
+      if (opts.onTap) {
+        row.classList.add("tap"); row.tabIndex = 0; row.setAttribute("role", "button");
+        row.addEventListener("click", e => { if (!e.target.closest(".del")) opts.onTap(x); });
+        row.addEventListener("keydown", e => { if (e.key === "Enter" && e.target === row) opts.onTap(x); });
+      }
       grp.appendChild(row);
     });
   }
@@ -555,6 +627,7 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
   // ---------- render ----------
   function render(){
     $("monthLabel").textContent = monthName(view);
+    if (typeof updateBackupInfo === "function" && $("bkNotice")) try { updateBackupInfo(); } catch(e){}
     const st = monthStats(view);
     const bi = baseIncome(view);
     const exps = inMonth(state.expenses, view).sort(byNewest);
@@ -615,7 +688,7 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
       const t = sum(shownExps);
       $("expFiltSum").innerHTML = `Showing <b>${esc(catOf(filter).name)}</b> only: <b>${fmt(t)}</b> across ${shownExps.length} ${shownExps.length === 1 ? "entry" : "entries"}${st.spent ? `, ${Math.round(t/st.spent*100)}% of this month's spending` : ""}.`;
     } else $("expFiltSum").textContent = "";
-    list($("expList"), shownExps, {coll:"expenses", empty: filter === "all" ? "" : "No " + catOf(filter).name + " expenses in " + monthName(view) + ".",
+    list($("expList"), shownExps, {coll:"expenses", onTap: openQuick, empty: filter === "all" ? "" : "No " + catOf(filter).name + " expenses in " + monthName(view) + ".",
       look: x => { const c = catOf(x.cat); return {title:c.name, color:c.c}; }});
     if (!exps.length && filter === "all") $("expList").innerHTML = "";
 
@@ -742,17 +815,14 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
   }
   $("openReport").onclick = () => { $("rErr").textContent = ""; updateReportInfo(); $("reportDlg").showModal(); };
 
-  let jsPDFReady = null;
-  function loadJsPDF(){
-    if (window.jspdf) return Promise.resolve();
-    if (jsPDFReady) return jsPDFReady;
-    jsPDFReady = new Promise((res, rej) => {
-      const sc = document.createElement("script");
-      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-      sc.onload = () => window.jspdf ? res() : rej(); sc.onerror = () => { jsPDFReady = null; rej(); };
-      document.head.appendChild(sc);
-    });
-    return jsPDFReady;
+    function loadScript(src){
+    return new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = src; sc.onload = res; sc.onerror = () => { sc.remove(); rej(); }; document.head.appendChild(sc); });
+  }
+  async function loadJsPDF(){
+    if (window.jspdf) return;
+    try { await loadScript("vendor/jspdf.umd.min.js"); } catch(e) {}
+    if (!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    if (!window.jspdf) throw new Error("jspdf");
   }
   const pdfAmt = n => (n < 0 ? "-Rp " : "Rp ") + Math.round(Math.abs(n)).toLocaleString("id-ID");
   const pdfCompact = n => compact(n).replace(/\s/g, " ");
@@ -774,7 +844,7 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
     const rate = T.income ? (T.income - T.spent) / T.income : null;
     const sorted = cats.slice().sort((a, b) => b.total - a.total);
     const top = sorted[0];
-    const out = {headline:"", summary:"", highlights:[], suggestions:[], ai:false};
+    const out = {headline:"", summary:"", highlights:[], suggestions:[]};
     if (!T.spent && !T.income) { out.headline = "Not enough data yet"; out.summary = "Add your income and expenses to get a meaningful conclusion for this period."; return out; }
     if (rate == null) out.headline = "Spending tracked, income not set";
     else if (T.left < 0) out.headline = "You spent more than you earned";
@@ -804,57 +874,6 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
     out.suggestions = out.suggestions.slice(0, 3); out.highlights = out.highlights.slice(0, 3);
     return out;
   }
-  let sampleNS = null, serverAI = false;
-  (async () => {
-    try { if (window.claude && typeof window.claude.use === "function") sampleNS = await window.claude.use("sample"); } catch(e){ sampleNS = null; }
-    if (!sampleNS && location.protocol.startsWith("http")) {
-      try { const r = await fetch("api/conclusion", {method:"GET"}); if (r.ok) { const j = await r.json(); serverAI = !!j.ai; } } catch(e){}
-    }
-    if (sampleNS || serverAI) $("rAIRow").hidden = false;
-  })();
-  function aiPayload(ks){
-    const {stats, T, cats, bal, avg, exps} = reportData(ks);
-    const data = {
-      period: periodLabel(ks), months: ks.length, currency: "IDR (Rupiah)",
-      perMonth: stats.map(s => ({month: monthName(s.k), income: s.income, regularIncome: s.base, extraIncome: s.extra, expenses: s.spent, invested: s.invested, emergencyFundNet: s.fundNet, leftOver: s.left})),
-      totals: {income: T.income, expenses: T.spent, invested: T.invested, emergencyFundNet: T.fundNet, leftOver: T.left, averageMonthlyExpenses: Math.round(avg)},
-      categories: cats.map(c => ({name: c.name, total: c.total, perMonth: c.perMonth})),
-      biggestExpenses: exps.slice().sort((a, b) => b.amount - a.amount).slice(0, 5).map(x => ({date: x.date, category: catOf(x.cat).name, amount: x.amount, note: x.note || ""})),
-      extraIncome: state.extras.filter(x => ks.includes(x.date.slice(0,7))).map(x => ({type: xOf(x.type).name, amount: x.amount, date: x.date})),
-      investmentsByType: INV.map(t => ({type: t.name, total: sum(state.investments.filter(x => x.type === t.id && ks.includes(x.date.slice(0,7))))})).filter(r => r.total),
-      emergencyFund: {balanceAtEnd: bal, target: state.efundTarget || null},
-    };
-    return data;
-  }
-  async function aiConclusion(ks){
-    const data = aiPayload(ks);
-    let r;
-    if (sampleNS) {
-    const prompt = `You are a calm, friendly personal finance coach writing the conclusion of a personal "Money Diary" report.
-Here is the person's data as JSON (amounts are in Indonesian Rupiah):
-${JSON.stringify(data)}
-
-Write the conclusion. Rules:
-- Base every statement strictly on the numbers given. Do not invent facts.
-- Format money like "Rp 1.250.000" (dots as thousand separators).
-- Warm, encouraging, honest tone. Plain English. No emojis, no special symbols, no markdown.
-- Do not recommend specific investment products, stocks or funds.
-- Keep it short: headline max 10 words; summary 2-3 sentences; exactly 3 highlights and 3 suggestions, each one sentence.
-
-Respond with ONLY a JSON object, no other text:
-{"headline": "...", "summary": "...", "highlights": ["...","...","..."], "suggestions": ["...","...","..."]}`;
-      r = await sampleNS.json(prompt);
-    } else {
-      const resp = await fetch("api/conclusion", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({data})});
-      if (!resp.ok) throw new Error("server " + resp.status);
-      r = await resp.json();
-    }
-    if (!r || typeof r.summary !== "string") throw new Error("bad");
-    return {headline: String(r.headline || "Conclusion"), summary: r.summary,
-      highlights: (Array.isArray(r.highlights) ? r.highlights : []).slice(0, 4).map(String),
-      suggestions: (Array.isArray(r.suggestions) ? r.suggestions : []).slice(0, 4).map(String), ai: true};
-  }
-
   function buildPDF(ks, detail, conclusion){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({unit:"mm", format:"a4"});
@@ -963,7 +982,7 @@ Respond with ONLY a JSON object, no other text:
       doc.setFillColor(SAGE); doc.rect(M, y + 3, 1.2, h - 6, "F");
       let yy = y + 8;
       text("Conclusion", M + 6, yy, {size:8, bold:true, color:SAGE});
-      text(conclusion.ai ? "Written by Claude (AI) from your numbers" : "Based on your numbers", M + CW - 6, yy, {size:7.5, color:MUT, align:"right"});
+      text("Based on your numbers", M + CW - 6, yy, {size:7.5, color:MUT, align:"right"});
       yy += 7;
       doc.setFont("times", "normal"); doc.setFontSize(15); doc.setTextColor(INK); doc.text(clean(conclusion.headline), M + 6, yy);
       yy += 6;
@@ -1079,26 +1098,117 @@ Respond with ONLY a JSON object, no other text:
     try {
       await loadJsPDF();
       const ks = reportMonths();
-      let conclusion = null, aiNote = "";
-      if ((sampleNS || serverAI) && $("rAI").checked) {
-        btn.textContent = "Claude is writing the conclusion…";
-        try { conclusion = await aiConclusion(ks); }
-        catch(err2){ aiNote = err2 && err2.code === "not_granted" ? "AI wasn't allowed, so the report uses the standard conclusion." : "The AI conclusion wasn't available, so the report uses the standard conclusion."; }
-        btn.textContent = "Preparing…";
-      }
-      if (!conclusion) conclusion = ruleConclusion(ks);
+      const conclusion = ruleConclusion(ks);
       const doc = buildPDF(ks, $("rDetail").checked, conclusion);
       const name = "Money-Diary_" + ks[0] + (ks.length > 1 ? "_to_" + ks[ks.length - 1] : "") + ".pdf";
       await saveFile(name, doc.output("blob"));
-      if (aiNote) $("rErr").textContent = aiNote; else $("reportDlg").close();
+      $("reportDlg").close();
     } catch(err) {
       const code = err && err.code;
       $("rErr").textContent = code === "declined" ? "Download cancelled." : code === "rate_limited" ? "A download prompt is already open. Try again in a moment." : !window.jspdf ? "Couldn't load the PDF tool. Check your internet connection and try again." : "Couldn't create the report. Try again.";
     } finally { btn.disabled = false; btn.textContent = "Download PDF"; }
   };
 
+  // ---------- Quick add / edit expense ----------
+  let qCat = "metime", qEditing = null;
+  CATS.forEach(c => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "cat"; b.dataset.id = c.id;
+    b.style.setProperty("--c", c.c); b.innerHTML = '<span class="dot"></span>'; b.append(c.name);
+    b.onclick = () => { qCat = c.id; syncQCats(); };
+    $("qCats").appendChild(b);
+  });
+  function syncQCats(){ $("qCats").querySelectorAll(".cat").forEach(x => x.setAttribute("aria-pressed", x.dataset.id === qCat)); }
+  bindAmount($("qAmount"));
+  function openQuick(x){
+    qEditing = x || null;
+    $("qErr").textContent = "";
+    $("qTitle").textContent = x ? "Edit expense" : "Add expense";
+    $("qSave").textContent = x ? "Save changes" : "Add expense";
+    $("qDelete").hidden = !x; $("qDelete").classList.remove("arm"); $("qDelete").textContent = "Delete";
+    $("qSub").hidden = !x; if (x) $("qSub").textContent = "Added " + dayLabel(x.date);
+    $("qAmount").value = x ? x.amount.toLocaleString("id-ID") : "";
+    $("qNote").value = x ? (x.note || "") : "";
+    $("qDate").value = x ? x.date : defaultDate(view);
+    qCat = x ? x.cat : (qCat || "metime"); syncQCats();
+    $("quickDlg").showModal();
+    if (!x) setTimeout(() => $("qAmount").focus(), 50);
+  }
+  $("fab").onclick = () => openQuick(null);
+  $("quickForm").onsubmit = e => {
+    e.preventDefault();
+    const amount = parseAmt($("qAmount").value), date = $("qDate").value;
+    if (!amount) { $("qErr").textContent = "Enter an amount above Rp 0."; $("qAmount").focus(); return; }
+    if (!date) { $("qErr").textContent = "Pick a date."; return; }
+    if (qEditing) Object.assign(state.expenses.find(y => y.id === qEditing.id) || {}, {amount, date, cat: qCat, note: $("qNote").value.trim()});
+    else state.expenses.push({id: uid(), t: Date.now(), amount, date, cat: qCat, note: $("qNote").value.trim()});
+    view = date.slice(0, 7);
+    $("quickDlg").close(); persist(); render();
+  };
+  let qArm = null;
+  $("qDelete").onclick = () => {
+    const d = $("qDelete");
+    if (!qArm) { d.classList.add("arm"); d.textContent = "Tap to confirm"; qArm = setTimeout(() => { qArm = null; d.classList.remove("arm"); d.textContent = "Delete"; }, 3000); return; }
+    clearTimeout(qArm); qArm = null;
+    state.expenses = state.expenses.filter(y => y.id !== qEditing.id);
+    $("quickDlg").close(); persist(); render();
+  };
+
+  // ---------- Backup & restore ----------
+  const BK = "dailyfinance:lastBackup";
+  const getLastBk = () => { try { return Number(localStorage.getItem(BK)) || 0; } catch(e){ return 0; } };
+  const hasData = () => state.expenses.length + state.investments.length + state.extras.length + state.efund.length > 0;
+  function updateBackupInfo(){
+    const last = getLastBk();
+    $("bkLast").textContent = last ? "Last backup: " + new Date(last).toLocaleDateString("en-GB", {day:"numeric", month:"long", year:"numeric"}) : "You haven't made a backup yet.";
+    const days = last ? (Date.now() - last) / 864e5 : Infinity;
+    const show = hasData() && days > 14;
+    $("bkNotice").hidden = !show;
+    if (show) $("bkNoticeText").textContent = last ? "It's been " + Math.floor(days) + " days since your last backup." : "Your entries are only saved in this browser. Make a backup to keep them safe.";
+  }
+  function openBackup(){ $("bkErr").textContent = ""; $("bkConfirm").hidden = true; updateBackupInfo(); $("backupDlg").showModal(); }
+  $("openBackup").onclick = openBackup; $("bkNoticeBtn").onclick = openBackup;
+  $("bkDownload").onclick = async () => {
+    $("bkErr").textContent = "";
+    try {
+      const d = new Date();
+      const name = "Money-Diary-backup_" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + ".json";
+      await saveFile(name, new Blob([JSON.stringify({app: "money-diary", exported: d.toISOString(), data: state}, null, 1)], {type: "application/json"}));
+      try { localStorage.setItem(BK, String(Date.now())); } catch(e){}
+      updateBackupInfo();
+      $("bkErr").style.color = "var(--ok)"; $("bkErr").textContent = "Backup downloaded.";
+    } catch(err) { $("bkErr").style.color = ""; $("bkErr").textContent = err && err.code === "declined" ? "Download cancelled." : "Couldn't download the backup. Try again."; }
+  };
+  let pending = null;
+  $("bkRestore").onclick = () => { $("bkFile").value = ""; $("bkFile").click(); };
+  $("bkFile").onchange = async () => {
+    const f = $("bkFile").files[0]; if (!f) return;
+    $("bkErr").style.color = ""; $("bkErr").textContent = "";
+    try {
+      const j = JSON.parse(await f.text());
+      const s2 = normalize(j && j.data ? j.data : j);
+      if (!s2 || (!s2.expenses.length && !s2.investments.length && !s2.extras.length && !s2.efund.length && !Object.keys(s2.income).length)) throw new Error("empty");
+      pending = s2;
+      $("bkConfirmText").textContent = `This backup has ${s2.expenses.length} expenses, ${s2.investments.length} investments and ${s2.efund.length} emergency fund entries. Restoring replaces everything currently in this browser.`;
+      $("bkConfirm").hidden = false;
+    } catch(e) { $("bkErr").textContent = "That file isn't a Money Diary backup. Choose a .json file downloaded from Backup."; }
+  };
+  $("bkCancel").onclick = () => { pending = null; $("bkConfirm").hidden = true; };
+  $("bkReplace").onclick = () => {
+    if (!pending) return;
+    state = pending; pending = null; persist(); render();
+    $("bkConfirm").hidden = true; $("bkErr").style.color = "var(--ok)"; $("bkErr").textContent = "Backup restored.";
+  };
+
+  // ---------- Keep data safe, work offline ----------
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+  try {
+    const topLevel = window.top === window.self;
+    if (topLevel && "serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1"))
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  } catch(e){}
+
   const local = normalize(loadLocal()); if (local) state = local;
-  render();
+  render(); updateBackupInfo();
   connectRemote();
 })();
 </script>
