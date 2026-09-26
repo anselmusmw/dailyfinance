@@ -200,6 +200,14 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
 .notice{display:flex;justify-content:space-between;align-items:center;gap:10px;background:color-mix(in srgb,var(--invest) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--invest) 35%,transparent);border-radius:16px;padding:10px 14px;margin:0 0 14px;font-size:.9rem}
 .notice button{flex:none}
 dialog.sheet{max-height:92vh;overflow:auto}
+.notice.bad{background:color-mix(in srgb,var(--bad) 12%,var(--surface));border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:60;
+  width:max-content;max-width:min(92vw,460px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:14px;font-size:.92rem;font-weight:500;text-align:center;transition:opacity .25s,transform .25s;box-shadow:0 10px 30px -10px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.bad{background:var(--bad);color:#fff}
+dialog.fallback{position:fixed;inset:0;margin:auto;height:fit-content;z-index:50;box-shadow:0 0 0 100vmax rgba(20,30,27,.45)}
+body.dlg-open{overflow:hidden}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
 @media (max-width:900px){ .kpis{grid-template-columns:repeat(3,1fr)} }
 @media (max-width:760px){
   .grid,.grid2{grid-template-columns:minmax(0,1fr)}
@@ -233,6 +241,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
 </header>
 
 <main class="wrap">
+  <div class="notice bad" id="saveWarn" hidden><span>This browser isn't saving your entries, so they will disappear when you close the app. Open the app from its web address (for example your GitHub Pages link) in Chrome or Safari, not in private mode or from a downloaded file.</span></div>
   <div class="notice" id="bkNotice" hidden><span id="bkNoticeText"></span><button class="ghost" id="bkNoticeBtn">Back up now</button></div>
   <section class="kpis" aria-label="Month summary">
     <div class="kpi" style="--c:var(--income)"><span>Income</span><b id="kIncome">Rp 0</b><small id="kIncomeSub"></small></div>
@@ -374,6 +383,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
   </section>
 
   <p class="foot" id="syncNote">Saved on this device.</p>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <button class="fab" id="fab" aria-label="Add expense"><span>+</span> Expense</button>
 </main>
 
@@ -461,7 +471,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
   const $ = id => document.getElementById(id);
   const fmt = n => "Rp " + Math.round(n).toLocaleString("id-ID");
   const compact = n => n >= 1e9 ? (n/1e9).toLocaleString("id-ID",{maximumFractionDigits:1})+" M" : n >= 1e6 ? (n/1e6).toLocaleString("id-ID",{maximumFractionDigits:1})+" jt" : n >= 1e3 ? Math.round(n/1e3)+" rb" : String(Math.round(n));
-  const parseAmt = s => Number(String(s).replace(/[^\d]/g, "")) || 0;
+  const parseAmt = s => Number(String(s).split(",")[0].replace(/[^\d]/g, "")) || 0;
   const pad = n => String(n).padStart(2, "0");
   const mkey = d => d.getFullYear() + "-" + pad(d.getMonth() + 1);
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -487,11 +497,37 @@ dialog.sheet{max-height:92vh;overflow:auto}
     return out;
   }
 
+
+  // ---------- Dialogs (with fallback for older phone browsers) ----------
+  function openDlg(d){
+    if (typeof d.showModal === "function") { try { d.showModal(); return; } catch(e){} }
+    d.setAttribute("open", ""); d.classList.add("fallback"); document.body.classList.add("dlg-open");
+  }
+  function closeDlg(d){
+    if (typeof d.close === "function" && !d.classList.contains("fallback")) { try { d.close(); return; } catch(e){} }
+    d.removeAttribute("open"); d.classList.remove("fallback"); document.body.classList.remove("dlg-open");
+  }
+
+  // ---------- Toast messages ----------
+  let toastT = null;
+  function toast(msg, kind){
+    const t = $("toast"); t.textContent = msg; t.className = "toast show" + (kind ? " " + kind : "");
+    clearTimeout(toastT); toastT = setTimeout(() => { t.className = "toast"; }, kind === "bad" ? 6000 : 2600);
+  }
+  window.addEventListener("error", e => toast("Something went wrong: " + (e.message || "unknown error") + ". Please reload the app.", "bad"));
+
   // ---------- storage ----------
-  function saveLocal(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+  let storageOK = true;
+  function saveLocal(){
+    try { localStorage.setItem(KEY, JSON.stringify(state)); storageOK = true; $("saveWarn").hidden = true; return true; }
+    catch(e){ storageOK = false; $("saveWarn").hidden = false; return false; }
+  }
+  function storageWorks(){ try { localStorage.setItem("dailyfinance:test", "1"); const ok = localStorage.getItem("dailyfinance:test") === "1"; localStorage.removeItem("dailyfinance:test"); return ok; } catch(e){ return false; } }
   function loadLocal(){ try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e){ return null; } }
   let saveTimer = null;
+  let dirty = false;
   function persist(){
+    dirty = true;
     saveLocal();
     if (!remote) return;
     clearTimeout(saveTimer);
@@ -509,7 +545,17 @@ dialog.sheet{max-height:92vh;overflow:auto}
       const doc = db.doc("data/users/" + id + "/finance");
       const snap = await doc.get();
       remote = doc;
-      if (snap.exists) { const s = normalize(snap.data()); if (s) { state = s; saveLocal(); render(); } }
+      if (snap.exists) {
+        const s = normalize(snap.data());
+        if (s && !dirty) { state = s; saveLocal(); render(); }
+        else if (s) {
+          // You added something while the account copy was loading: keep both.
+          ["expenses","investments","extras","efund"].forEach(k => { const have = new Set(state[k].map(x => x.id)); s[k].forEach(x => { if (!have.has(x.id)) state[k].push(x); }); });
+          Object.keys(s.income).forEach(k => { if (state.income[k] == null) state.income[k] = s.income[k]; });
+          if (!state.efundTarget) state.efundTarget = s.efundTarget;
+          remote = doc; persist(); render();
+        }
+      }
       else persist();
       $("syncNote").textContent = "Saved to your account.";
     } catch(e){ remote = null; }
@@ -722,7 +768,21 @@ dialog.sheet{max-height:92vh;overflow:auto}
   }
 
   // ---------- setup ----------
-  function bindAmount(input){ input.addEventListener("input", () => { const n = parseAmt(input.value); input.value = n ? n.toLocaleString("id-ID") : ""; }); }
+  function bindAmount(input){
+    let composing = false;
+    const tidy = () => {
+      const digits = String(input.value).split(",")[0].replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "").slice(0, 15);
+      const pretty = digits ? Number(digits).toLocaleString("id-ID") : "";
+      if (input.value === pretty) return;
+      const fromEnd = input.value.length - (input.selectionEnd == null ? input.value.length : input.selectionEnd);
+      input.value = pretty;
+      try { const pos = Math.max(0, pretty.length - fromEnd); input.setSelectionRange(pos, pos); } catch(e){}
+    };
+    input.addEventListener("compositionstart", () => composing = true);
+    input.addEventListener("compositionend", () => { composing = false; tidy(); });
+    input.addEventListener("input", e => { if (!composing && !e.isComposing) tidy(); });
+    input.addEventListener("blur", tidy);
+  }
   ["expAmount","invAmount","xAmount","fAmount","incomeInput","targetInput"].forEach(id => bindAmount($(id)));
 
   CATS.forEach(c => {
@@ -743,8 +803,12 @@ dialog.sheet{max-height:92vh;overflow:auto}
     errEl.textContent = "";
     state[coll].push(Object.assign({id: uid(), t: Date.now(), amount, date, note: noteEl.value.trim()}, extra));
     amtEl.value = ""; noteEl.value = "";
+    if (coll === "expenses" && filter !== "all" && filter !== extra.cat) filter = "all";
+    const moved = date.slice(0,7) !== view;
     view = date.slice(0,7);
-    persist(); render(); amtEl.focus();
+    persist(); render();
+    const what = {expenses: "Expense", investments: "Investment", extras: "Extra income", efund: extra.kind === "out" ? "Taken from fund:" : "Added to fund:"}[coll];
+    confirmAdd(what + " " + fmt(amount) + (moved ? " (in " + monthName(view) + ")" : ""));
   }
   $("expForm").onsubmit = e => { e.preventDefault(); addEntry("expenses", {cat: selCat}, ["expAmount","expNote","expDate","expErr"]); };
   $("invForm").onsubmit = e => { e.preventDefault(); addEntry("investments", {type: $("invType").value}, ["invAmount","invNote","invDate","invErr"]); };
@@ -770,29 +834,29 @@ dialog.sheet{max-height:92vh;overflow:auto}
   document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
   document.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => { filter = "all"; setTab(b.dataset.goto); });
 
-  document.querySelectorAll("dialog [data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
+  document.querySelectorAll("dialog [data-close]").forEach(b => b.onclick = () => closeDlg(b.closest("dialog")));
   $("editIncome").onclick = () => {
     const bi = baseIncome(view);
     $("incomeInput").value = bi.value ? bi.value.toLocaleString("id-ID") : "";
     $("incomeOnly").checked = !!bi.only;
     $("incomeHint").textContent = `Your regular income for ${monthName(view)}. Later months use it too until you change it. Add bonuses separately as extra income.`;
-    $("incomeDlg").showModal(); $("incomeInput").focus();
+    openDlg($("incomeDlg")); $("incomeInput").focus();
   };
   $("incomeForm").onsubmit = e => {
     e.preventDefault();
     const v = parseAmt($("incomeInput").value);
     delete state.income["only:" + view];
     if ($("incomeOnly").checked) state.income["only:" + view] = v; else state.income[view] = v;
-    $("incomeDlg").close(); persist(); render();
+    closeDlg($("incomeDlg")); persist(); render(); confirmAdd("Income set to " + fmt(v));
   };
   $("editTarget").onclick = () => {
     const months = []; for (let i = 0; i < 3; i++) months.push(monthStats(shiftMonth(view, -i)).spent);
     const avg = months.reduce((a,b) => a + b, 0) / 3;
     $("targetHint").textContent = avg ? `A common goal is 3 to 6 months of expenses. Based on your recent spending, that's about ${fmt(avg*3)} to ${fmt(avg*6)}.` : "A common goal is 3 to 6 months of expenses.";
     $("targetInput").value = state.efundTarget ? state.efundTarget.toLocaleString("id-ID") : "";
-    $("targetDlg").showModal(); $("targetInput").focus();
+    openDlg($("targetDlg")); $("targetInput").focus();
   };
-  $("targetForm").onsubmit = e => { e.preventDefault(); state.efundTarget = parseAmt($("targetInput").value); $("targetDlg").close(); persist(); render(); };
+  $("targetForm").onsubmit = e => { e.preventDefault(); state.efundTarget = parseAmt($("targetInput").value); closeDlg($("targetDlg")); persist(); render(); };
 
 
   // ---------- PDF report ----------
@@ -813,7 +877,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
     b.onclick = () => { rN = n; updateReportInfo(); };
     $("rMonths").appendChild(b);
   }
-  $("openReport").onclick = () => { $("rErr").textContent = ""; updateReportInfo(); $("reportDlg").showModal(); };
+  $("openReport").onclick = () => { $("rErr").textContent = ""; updateReportInfo(); openDlg($("reportDlg")); };
 
     function loadScript(src){
     return new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = src; sc.onload = res; sc.onerror = () => { sc.remove(); rej(); }; document.head.appendChild(sc); });
@@ -1102,7 +1166,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
       const doc = buildPDF(ks, $("rDetail").checked, conclusion);
       const name = "Money-Diary_" + ks[0] + (ks.length > 1 ? "_to_" + ks[ks.length - 1] : "") + ".pdf";
       await saveFile(name, doc.output("blob"));
-      $("reportDlg").close();
+      closeDlg($("reportDlg"));
     } catch(err) {
       const code = err && err.code;
       $("rErr").textContent = code === "declined" ? "Download cancelled." : code === "rate_limited" ? "A download prompt is already open. Try again in a moment." : !window.jspdf ? "Couldn't load the PDF tool. Check your internet connection and try again." : "Couldn't create the report. Try again.";
@@ -1130,7 +1194,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
     $("qNote").value = x ? (x.note || "") : "";
     $("qDate").value = x ? x.date : defaultDate(view);
     qCat = x ? x.cat : (qCat || "metime"); syncQCats();
-    $("quickDlg").showModal();
+    openDlg($("quickDlg"));
     if (!x) setTimeout(() => $("qAmount").focus(), 50);
   }
   $("fab").onclick = () => openQuick(null);
@@ -1141,8 +1205,11 @@ dialog.sheet{max-height:92vh;overflow:auto}
     if (!date) { $("qErr").textContent = "Pick a date."; return; }
     if (qEditing) Object.assign(state.expenses.find(y => y.id === qEditing.id) || {}, {amount, date, cat: qCat, note: $("qNote").value.trim()});
     else state.expenses.push({id: uid(), t: Date.now(), amount, date, cat: qCat, note: $("qNote").value.trim()});
+    if (filter !== "all" && filter !== qCat) filter = "all";
+    const moved = date.slice(0, 7) !== view;
     view = date.slice(0, 7);
-    $("quickDlg").close(); persist(); render();
+    closeDlg($("quickDlg")); persist(); render();
+    confirmAdd((qEditing ? "Saved " : "Added ") + catOf(qCat).name + " " + fmt(amount) + (moved ? " (in " + monthName(view) + ")" : ""));
   };
   let qArm = null;
   $("qDelete").onclick = () => {
@@ -1150,7 +1217,7 @@ dialog.sheet{max-height:92vh;overflow:auto}
     if (!qArm) { d.classList.add("arm"); d.textContent = "Tap to confirm"; qArm = setTimeout(() => { qArm = null; d.classList.remove("arm"); d.textContent = "Delete"; }, 3000); return; }
     clearTimeout(qArm); qArm = null;
     state.expenses = state.expenses.filter(y => y.id !== qEditing.id);
-    $("quickDlg").close(); persist(); render();
+    closeDlg($("quickDlg")); persist(); render();
   };
 
   // ---------- Backup & restore ----------
@@ -1161,11 +1228,11 @@ dialog.sheet{max-height:92vh;overflow:auto}
     const last = getLastBk();
     $("bkLast").textContent = last ? "Last backup: " + new Date(last).toLocaleDateString("en-GB", {day:"numeric", month:"long", year:"numeric"}) : "You haven't made a backup yet.";
     const days = last ? (Date.now() - last) / 864e5 : Infinity;
-    const show = hasData() && days > 14;
+    const show = storageOK && hasData() && days > 14;
     $("bkNotice").hidden = !show;
     if (show) $("bkNoticeText").textContent = last ? "It's been " + Math.floor(days) + " days since your last backup." : "Your entries are only saved in this browser. Make a backup to keep them safe.";
   }
-  function openBackup(){ $("bkErr").textContent = ""; $("bkConfirm").hidden = true; updateBackupInfo(); $("backupDlg").showModal(); }
+  function openBackup(){ $("bkErr").textContent = ""; $("bkConfirm").hidden = true; updateBackupInfo(); openDlg($("backupDlg")); }
   $("openBackup").onclick = openBackup; $("bkNoticeBtn").onclick = openBackup;
   $("bkDownload").onclick = async () => {
     $("bkErr").textContent = "";
@@ -1207,6 +1274,11 @@ dialog.sheet{max-height:92vh;overflow:auto}
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   } catch(e){}
 
+  function confirmAdd(msg){
+    if (!storageOK) toast(msg + " but it could NOT be saved on this device. See the warning at the top.", "bad");
+    else toast(msg + " ✓");
+  }
+  if (!storageWorks()) { storageOK = false; $("saveWarn").hidden = false; }
   const local = normalize(loadLocal()); if (local) state = local;
   render(); updateBackupInfo();
   connectRemote();

@@ -1,6 +1,6 @@
 // Offline support: keeps the app working without internet once it has been opened.
 // Change VERSION whenever you update the app so phones pick up the new files.
-const VERSION = "money-diary-v1";
+const VERSION = "money-diary-v2";
 const CORE = ["./", "index.html", "manifest.webmanifest", "vendor/jspdf.umd.min.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
