@@ -184,6 +184,9 @@ dialog p{margin:0 0 10px;color:var(--muted);font-size:.9rem}
 .check{display:flex;gap:8px;align-items:center;font-size:.9rem;margin-top:12px;color:var(--muted)}
 .rperiod{margin-top:12px;padding:12px 14px;background:var(--soft);border-radius:14px;font-size:.9rem}
 .rperiod b{display:block;font:400 1.25rem var(--serif)}
+.steps{margin:6px 0 0;padding-left:1.2em;display:grid;gap:9px;font-size:.93rem}
+.steps li::marker{color:var(--accent);font-weight:700}
+.steps i{font-style:normal;font-weight:500;color:var(--accent)}
 .foot{margin-top:32px;font-size:.8rem;color:var(--muted);text-align:center}
 
 /* ---------- Everyday: quick add, edit, backup ---------- */
@@ -235,6 +238,7 @@ body.dlg-open{overflow:hidden}
   </div>
   <div class="hactions">
     <button class="pill" id="thisMonth">This month</button>
+    <button class="pill" id="openHelp">Help</button>
     <button class="pill" id="openBackup">Backup</button>
     <button class="pill dark" id="openReport">PDF report</button>
   </div>
@@ -405,6 +409,21 @@ body.dlg-open{overflow:hidden}
   </form>
 </dialog>
 
+<dialog id="helpDlg">
+  <form id="helpForm">
+    <h3>Welcome to Money Diary</h3>
+    <p>Your private money journal. Everything stays on this device, with no account and no internet needed.</p>
+    <ol class="steps">
+      <li><b>Set your income.</b> In <i>Overview</i>, tap <i>Set income</i>. Add a bonus or THR under <i>Add extra income</i>.</li>
+      <li><b>Add what you spend.</b> Tap <i>+ Expense</i> at the bottom, type the amount and pick a category. Tap any expense later to edit it.</li>
+      <li><b>See where it goes.</b> <i>Overview</i> shows your month at a glance. Each month starts fresh at Rp 0, and the arrows let you look back.</li>
+      <li><b>Save money on the side.</b> Use <i>Investments</i> and <i>Emergency Fund</i> to track money you set aside.</li>
+      <li><b>Get a report.</b> <i>PDF report</i> makes a summary of 1 to 6 months.</li>
+      <li><b>Keep it safe.</b> Tap <i>Backup</i> now and then to download a copy of your data.</li>
+    </ol>
+    <div class="drow"><button class="primary" type="submit" style="margin:0">Let's start</button></div>
+  </form>
+</dialog>
 <dialog id="quickDlg" class="sheet">
   <form id="quickForm" novalidate>
     <h3 id="qTitle">Add expense</h3>
@@ -1279,6 +1298,9 @@ body.dlg-open{overflow:hidden}
     else toast(msg + " ✓");
   }
   if (!storageWorks()) { storageOK = false; $("saveWarn").hidden = false; }
+  $("openHelp").onclick = () => openDlg($("helpDlg"));
+  $("helpForm").onsubmit = e => { e.preventDefault(); closeDlg($("helpDlg")); try { localStorage.setItem("dailyfinance:welcomed", "1"); } catch(err){} };
+  try { if (!localStorage.getItem("dailyfinance:welcomed")) setTimeout(() => openDlg($("helpDlg")), 300); } catch(e){}
   const local = normalize(loadLocal()); if (local) state = local;
   render(); updateBackupInfo();
   connectRemote();

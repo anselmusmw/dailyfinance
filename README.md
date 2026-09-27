@@ -5,6 +5,7 @@ A calm, personal expense, income and investment tracker. It runs fully in your b
 ## Features
 
 - **Overview**: income, expenses, invested, emergency fund and what's left for the month, plus a spending pie chart, a 6-month trend and recent activity.
+- **Welcome guide**: a short 6-step guide opens the first time you use the app. Tap **Help** to see it again.
 - **Quick add**: the **+ Expense** button is always at the bottom right. Tap any expense to edit or delete it.
 - **Expenses by category**, each with its own colour: Me time (cyan), Transport (green), Eat (purple), With friends (dark blue), Others (brown), Emergency (red). Filter to one category at a time.
 - **Income**: a regular monthly income that carries forward, plus extra income (bonus, THR, side job, gift) that counts only in the month you add it.
